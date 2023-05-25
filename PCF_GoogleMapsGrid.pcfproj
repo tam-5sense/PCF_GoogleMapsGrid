@@ -14,9 +14,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
-    <!--Remove TargetFramework when this is available in 16.1-->
-    <TargetFramework>net462</TargetFramework>
+   <TargetFramework>net7.0</TargetFramework>
     <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   </PropertyGroup>
 

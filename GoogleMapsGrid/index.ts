@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-this-alias */
 import {IInputs, IOutputs} from "./generated/ManifestTypes";
 import DataSetInterfaces = ComponentFramework.PropertyHelper.DataSetApi;
 type DataSet = ComponentFramework.PropertyTypes.DataSet;
@@ -55,10 +58,10 @@ export class GoogleMapsGrid implements ComponentFramework.StandardControl<IInput
         //this._refreshData = this.refreshData.bind(this);
 
         //Append Google Maps Script reference
-        let headerScript: HTMLScriptElement = document.createElement("script");
+        const headerScript: HTMLScriptElement = document.createElement("script");
         headerScript.type = 'text/javascript';
         headerScript.id = "GoogleHeaderScript";
-        var apiKey = context.parameters.googleMapsAPIKey.raw != null && context.parameters.googleMapsAPIKey.raw != "val" ? context.parameters.googleMapsAPIKey.raw : "";
+        const apiKey = context.parameters.googleMapsAPIKey.raw != null && context.parameters.googleMapsAPIKey.raw != "val" ? context.parameters.googleMapsAPIKey.raw : "";
         headerScript.src = "https://maps.googleapis.com/maps/api/js?key=" + apiKey;
         headerScript.onload = this.initMap;
         document.body.appendChild(headerScript);
@@ -79,22 +82,28 @@ export class GoogleMapsGrid implements ComponentFramework.StandardControl<IInput
             scrollwheel: false,
             center: new google.maps.LatLng(0, 0)
         };
-        this.gMap = new google.maps.Map(document.getElementById('mapDiv'),
-            this.mapOptions);
-        var self = this;
-        //Get Users Current Location
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function (position) {
-                var pos = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                };
-                self.gMap.setCenter(pos);
-                self.mapOptions.center = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-            }, function () {
-                //handleLocationError(true, infoWindow, map.getCenter());
-                //do nothing because we have set the center as 0 0 as a backup
-            });
+        const mapDiv = document.getElementById('mapDiv');
+        if (mapDiv !== null) {
+            // Xử lý khi không tìm thấy phần tử với id 'mapDiv'
+            this.gMap = new google.maps.Map(document.getElementById('mapDiv') as HTMLElement,
+                this.mapOptions);
+            const self = this;
+            //Get Users Current Location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    const pos = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    self.gMap.setCenter(pos);
+                    self.mapOptions.center = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                }, function () {
+                    //handleLocationError(true, infoWindow, map.getCenter());
+                    //do nothing because we have set the center as 0 0 as a backup
+                });
+            }
+        } else {
+           console.log("Error: mapDiv not found")
         }
     }
 
@@ -108,28 +117,55 @@ export class GoogleMapsGrid implements ComponentFramework.StandardControl<IInput
         // Add code to update control view
         console.log("update view called");
         this.initMap();
-        var LocalMap = this.gMap;
-        var dataSet = context.parameters.mapDataSet;
-        let latField: string = context.parameters.latFieldName.raw ? context.parameters.latFieldName.raw : "";
-        let longField: string = context.parameters.longFieldName.raw ? context.parameters.longFieldName.raw : "";
-        let nameField: string = context.parameters.primaryFieldName.raw ? context.parameters.primaryFieldName.raw : "";
+        const LocalMap = this.gMap;
+        const dataSet = context.parameters.mapDataSet;
+        const latField: string = context.parameters.latFieldName.raw ? context.parameters.latFieldName.raw : "35";
+        const longField: string = context.parameters.longFieldName.raw ? context.parameters.longFieldName.raw : "139";
+        const nameField: string = context.parameters.primaryFieldName.raw ? context.parameters.primaryFieldName.raw : "marker";
+
+        console.log("input dataSet: " + JSON.stringify(dataSet));
+        console.log("input latField: " + latField);
+        console.log("input longField: " + longField);
+        console.log("input nameField: " + nameField);
 
         if (dataSet == null || latField == "" || longField == "") {
             return;
         }
-        var infowindow = new google.maps.InfoWindow();
 
-        for (var i = 0; i < context.parameters.mapDataSet.paging.totalResultCount; i++) {
+        const infowindow = new google.maps.InfoWindow();
 
-            var recordId = dataSet.sortedRecordIds[i];
-            var record = dataSet.records[recordId] as DataSetInterfaces.EntityRecord;
-            var content = this.buildInforWindow(dataSet.getTargetEntityType(), recordId, record, dataSet.columns);
-            var myLatLng = { lat: record.getValue(latField) as any, lng: record.getValue(longField) as any };
-
-            var marker = new google.maps.Marker({
+        if (latField != "" && longField != "") {
+            const myLatLng = { lat: parseFloat(latField), lng: parseFloat(longField) };
+            const marker = new google.maps.Marker({
                 position: myLatLng,
                 map: this.gMap,
-                title: record.getValue(nameField) as any
+                title: nameField
+            });
+
+            google.maps.event.addListener(marker, 'click', (function (marker, content) {
+                return function () {
+                    infowindow.open(LocalMap, marker);
+                }
+            })(marker));
+
+            this.gMap.setCenter(myLatLng);
+            console.log("added marker");
+        }
+        
+        for (let i = 0; i < dataSet.paging.totalResultCount; i++) {
+            console.log("i: " + i);
+            const recordId = dataSet.sortedRecordIds[i];
+            const record = dataSet.records[recordId.toString()] as DataSetInterfaces.EntityRecord;
+            const content = this.buildInforWindow(dataSet.getTargetEntityType(), recordId, record, dataSet.columns);
+            const myLatLng = { lat: parseFloat(record.getFormattedValue("latFieldName") as string) || 35, lng: parseFloat(record.getFormattedValue("longFieldName") as string) || 139 };
+
+            console.log("lat: " + myLatLng.lat);
+            console.log("long: " + myLatLng.lng);
+
+            const marker = new google.maps.Marker({
+                position: myLatLng,
+                map: this.gMap,
+                title: record.getFormattedValue("primaryFieldName") as string
             });
 
             google.maps.event.addListener(marker, 'click', (function (marker, content) {
@@ -138,12 +174,14 @@ export class GoogleMapsGrid implements ComponentFramework.StandardControl<IInput
                     infowindow.open(LocalMap, marker);
                 }
             })(marker, content));
+
+            this.gMap.setCenter(myLatLng);
         }
 
-        this.gMap = LocalMap;
-
-	}
-
+     
+        this.gMap = LocalMap;       
+    }
+    
    /**
     * Function to build an information window for a given location marker
     * @param recEntityType
@@ -152,13 +190,13 @@ export class GoogleMapsGrid implements ComponentFramework.StandardControl<IInput
     * @param cols The columns to use to display information in the info window
     */
     public buildInforWindow(recEntityType: string, recId: string, rec: DataSetInterfaces.EntityRecord, cols: DataSetInterfaces.Column[]): HTMLDivElement {
-        var divTag = document.createElement("div");
+        const divTag = document.createElement("div");
         divTag.id = recId;
 
-        let content: string = "";
-        let primaryField: string = this._context.parameters.primaryFieldName.raw ? this._context.parameters.primaryFieldName.raw : "";
-        var titleString = rec.getValue(primaryField).toString();
-        var titleTag = document.createElement("a");
+        let content = "";
+        // const primaryField: string = this._context.parameters.primaryFieldName.raw ? this._context.parameters.primaryFieldName.raw : "";
+        const titleString = rec.getFormattedValue("primaryFieldName").toString();
+        const titleTag = document.createElement("a");
         titleTag.href = "#";
         titleTag.className = "infoTitle";
         titleTag.innerHTML = titleString;
@@ -166,21 +204,21 @@ export class GoogleMapsGrid implements ComponentFramework.StandardControl<IInput
 
         //initialise table
         content = content.concat("</br></br><table class='infotable'>");
-        for (var i = 0; i < cols.length; i++) {
+        for (let i = 0; i < cols.length; i++) {
             //add exclusion criteria to exclude lat,long, primary field and id
-            if (cols[i].name != this._context.parameters.latFieldName.raw &&
-                cols[i].name != this._context.parameters.primaryFieldName.raw &&
-                cols[i].name != this._context.parameters.longFieldName.raw) {
+            // if (cols[i].name != this._context.parameters.latFieldName.raw &&
+            //     cols[i].name != this._context.parameters.primaryFieldName.raw &&
+            //     cols[i].name != this._context.parameters.longFieldName.raw) {
                 //create row of data
                 content = content.concat("<tr><th class='infoth'>" + cols[i].displayName + ": </th>");
-                var strValue = rec.getFormattedValue(cols[i].name) != null ? rec.getFormattedValue(cols[i].name) : "";
+                const strValue = rec.getFormattedValue(cols[i].name) != null ? rec.getFormattedValue(cols[i].name) : "";
                 content = content.concat("<td class='infotd'> " + strValue + "</td></tr>");
-            }
+            // }
         }
         //close table
         content = content.concat("</table>");
 
-        var contentHTML: HTMLElement = document.createElement("span");
+        const contentHTML: HTMLElement = document.createElement("span");
         contentHTML.innerHTML = content;
         divTag.appendChild(contentHTML);
 
@@ -201,7 +239,7 @@ export class GoogleMapsGrid implements ComponentFramework.StandardControl<IInput
         //    id: recId,
         //    name: recName
         //};
-        let entityFormOptions = {
+        const entityFormOptions = {
             entityName: recType,
             entityId: recId,
         }
